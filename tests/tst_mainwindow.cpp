@@ -662,6 +662,49 @@ private slots:
         QVERIFY(halves(primary->height(), secondary->height()));
     }
 
+    // While a split opens or closes the pane width animates. The grid used
+    // to recompute its columns from that width every frame, so icons grew,
+    // snapped smaller and jumped rows at every column step. It now lays out
+    // at the width it will settle at for the whole animation.
+    void testGridKeepsItsColumnsWhileTheSplitCloses()
+    {
+        App app;
+        QDir().mkpath(app.home.path() + "/.config/hyprfm");
+        QFile cfg(app.home.path() + "/.config/hyprfm/config.toml");
+        QVERIFY(cfg.open(QIODevice::WriteOnly));
+        cfg.write("[appearance]\nanim_duration_slow = 1500\n");
+        cfg.close();
+        const QString dir = app.home.path() + "/many";
+        for (int i = 0; i < 20; ++i)
+            QVERIFY(QDir().mkpath(dir + QString("/folder%1").arg(i)));
+        QVERIFY(app.load());
+        app.window->resize(1100, 700);
+        QObject *root = app.window->contentItem()->parent();
+        TabModel *tab = app.tabModel->activeTab();
+        tab->navigateTo(dir);
+        QVERIFY(QMetaObject::invokeMethod(root, "toggleSplitView"));
+        QTRY_COMPARE_WITH_TIMEOUT(root->property("splitTransitionProgress").toReal(), 1.0, 5000);
+
+        QObject *container = app.window->findChild<QObject *>("primaryFileView");
+        QVERIFY(container);
+        auto *grid = container->property("gridViewItem").value<QQuickItem *>();
+        QVERIFY(grid);
+
+        QVERIFY(QMetaObject::invokeMethod(root, "toggleSplitView"));
+        QTest::qWait(50);
+        const int columns = grid->property("effectiveColumnCount").toInt();
+        const int cell = grid->property("cellWidth").toInt();
+        int samples = 0;
+        while (root->property("splitTransitionProgress").toReal() > 0.0) {
+            QCOMPARE(grid->property("effectiveColumnCount").toInt(), columns);
+            QCOMPARE(grid->property("cellWidth").toInt(), cell);
+            ++samples;
+            QTest::qWait(30);
+        }
+        QVERIFY2(samples > 10, qPrintable(QString::number(samples)));
+        QCOMPARE(grid->property("effectiveColumnCount").toInt(), columns);
+    }
+
     // A tab with no orientation of its own follows split_orientation, so the
     // first toggle has to flip that, not blindly pick "horizontal".
     void testToggleSplitOrientationFromConfigDefault()

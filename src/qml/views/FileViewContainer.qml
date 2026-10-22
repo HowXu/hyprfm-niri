@@ -8,6 +8,10 @@ Item {
     property string viewMode: "grid"
     property var fileModel: null
     property string currentPath: ""
+    // How much wider this view will be once a running pane animation ends
+    // (negative when it is shrinking). The grid is laid out at that width
+    // and clipped by the pane, so its columns do not reflow every frame.
+    property real settledWidthOffset: 0
 
     signal fileActivated(string filePath, bool isDirectory)
     signal contextMenuRequested(string filePath, bool isDirectory, point position)
@@ -79,7 +83,10 @@ Item {
 
     Loader {
         id: gridLoader
-        anchors.fill: parent
+        anchors.left: parent.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: Math.max(0, parent.width + root.settledWidthOffset)
         active: root.viewMode === "grid" || item !== null
         sourceComponent: Component {
             FileGridView {

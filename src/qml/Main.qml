@@ -4193,6 +4193,18 @@ ApplicationWindow {
                     readonly property real primaryWidth: width - gap - secondaryWidth
                     readonly property real primaryHeight: height - gap - secondaryHeight
 
+                    // Pane widths once the running split or fold animation
+                    // ends. The grid lays itself out for these so its columns
+                    // do not step through every count on the way.
+                    readonly property real settledProgress: root.splitViewEnabled() ? 1 : 0
+                    readonly property real settledWidth: parent.width - 16 * settledProgress
+                    readonly property real settledSecondaryWidth: root.isSplitHorizontal
+                        ? settledWidth
+                        : (settledWidth - 9 * settledProgress) * 0.5 * settledProgress
+                    readonly property real settledPrimaryWidth: root.isSplitHorizontal
+                        ? settledWidth
+                        : settledWidth - 17 * settledProgress - settledSecondaryWidth
+
                     // 0 = side by side, 1 = top and bottom. The switch folds in
                     // two steps so the panes never overlap: the secondary pane
                     // drops into the bottom-right quarter, then both panes
@@ -4233,6 +4245,10 @@ ApplicationWindow {
 
                             FileViewContainer {
                                 id: primaryFileViewContainer
+                                // Rounded like the layout rounds this container,
+                                // or the grid width wobbles by a pixel per frame.
+                                settledWidthOffset: Math.round(paneRow.settledPrimaryWidth)
+                                    - Math.round(primaryPaneFrame.width)
                                 objectName: "primaryFileView"
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
@@ -4324,6 +4340,11 @@ ApplicationWindow {
 
                                 FileViewContainer {
                                     id: secondaryFileViewContainer
+                                    // A closing pane keeps its layout while it fades out.
+                                    settledWidthOffset: root.splitViewEnabled()
+                                        ? Math.round(paneRow.settledSecondaryWidth)
+                                            - Math.round(secondaryPaneLoader.width)
+                                        : 0
                                     Layout.fillWidth: true
                                     Layout.fillHeight: true
                                     fileModel: root.paneModel("secondary")
